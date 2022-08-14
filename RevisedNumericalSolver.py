@@ -3,6 +3,16 @@ from torchdiffeq import odeint_adjoint as odeint
 import torch.nn as nn
 
 
+# Function to determine whether gpu is available or not
+def get_default_device():
+    """Pick GPU if available, else CPU"""
+    if torch.cuda.is_available():
+        return torch.device('cuda')
+    else:
+        return torch.device('cpu')
+
+
+device = get_default_device()
 
 # Differential Equations Governing Three Bodies
 # w is flattened input torch tensor with position vector followed by velocity vector followed by
@@ -100,29 +110,29 @@ class ThreeBody(nn.Module):
         # m_3 = y[20]
 
         # Torch calculated displacement vector magnitudes
-        r_12 = torch.sqrt((y[3:6][0] - y[:3][0]) ** 2 + (y[3:6][1] - y[:3][1]) ** 2 + (y[3:6][2] - y[:3][2]) ** 2)
-        r_13 = torch.sqrt((y[6:9][0] - y[:3][0]) ** 2 + (y[6:9][1] - y[:3][1]) ** 2 + (y[6:9][2] - y[:3][2]) ** 2)
-        r_23 = torch.sqrt((y[6:9][0] - y[3:6][0]) ** 2 + (y[6:9][1] - y[3:6][1]) ** 2 + (y[6:9][2] - y[3:6][2]) ** 2)
+        r_12 = torch.sqrt((y[3:6][0] - y[:3][0]) ** 2 + (y[3:6][1] - y[:3][1]) ** 2 + (y[3:6][2] - y[:3][2]) ** 2).to(device)
+        r_13 = torch.sqrt((y[6:9][0] - y[:3][0]) ** 2 + (y[6:9][1] - y[:3][1]) ** 2 + (y[6:9][2] - y[:3][2]) ** 2).to(device)
+        r_23 = torch.sqrt((y[6:9][0] - y[3:6][0]) ** 2 + (y[6:9][1] - y[3:6][1]) ** 2 + (y[6:9][2] - y[3:6][2]) ** 2).to(device)
 
         # The derivatives of the velocities. Returns torch tensor
         # G is assumed to be 1
-        dv_1bydt = y[19] * (y[3:6] - y[:3]) / r_12 ** 3 + y[20] * (y[6:9] - y[:3]) / r_13 ** 3
-        dv_2bydt = y[18] * (y[:3] - y[3:6]) / r_12 ** 3 + y[20] * (y[6:9] - y[3:6]) / r_23 ** 3
-        dv_3bydt = y[18] * (y[:3] - y[6:9]) / r_13 ** 3 + y[19] * (y[3:6] - y[6:9]) / r_23 ** 3
+        dv_1bydt = (y[19] * (y[3:6] - y[:3]) / r_12 ** 3 + y[20] * (y[6:9] - y[:3]) / r_13 ** 3).to(device)
+        dv_2bydt = (y[18] * (y[:3] - y[3:6]) / r_12 ** 3 + y[20] * (y[6:9] - y[3:6]) / r_23 ** 3).to(device)
+        dv_3bydt = (y[18] * (y[:3] - y[6:9]) / r_13 ** 3 + y[19] * (y[3:6] - y[6:9]) / r_23 ** 3).to(device)
 
 
 
         # Vector in form [position derivatives, velocity derivatives]
-        derivatives = torch.stack([y[9:12], y[12:15], y[15:18], dv_1bydt, dv_2bydt, dv_3bydt]).flatten()
+        derivatives = torch.stack([y[9:12], y[12:15], y[15:18], dv_1bydt, dv_2bydt, dv_3bydt]).flatten().to(device)
         # Includes mass derivatives of 0
-        derivatives = torch.cat((derivatives, torch.tensor([0, 0, 0])))
+        derivatives = torch.cat((derivatives, torch.tensor([0, 0, 0]).to(device)))
 
         # Flattens into 1d array for use
         return derivatives
 
 
 def torchstate(y, dt, time_span, method):
-    t = torch.linspace(0., time_span, steps=int(time_span/dt))
+    t = torch.linspace(0., time_span, steps=int(time_span/dt)).to(device)
     return odeint(ThreeBody(), y, t, method=method)
 
 
