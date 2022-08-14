@@ -1,4 +1,7 @@
 import torch
+from torchdiffeq import odeint_adjoint as odeint
+import torch.nn as nn
+
 
 
 # Differential Equations Governing Three Bodies
@@ -17,7 +20,7 @@ def ThreeBodyDiffEq(w):
     m_3 = w[20]
 
     # Torch calculated displacement vector magnitudes
-    r_12 = torch.sqrt((r_2[0] - r_1[0]) ** 2 + (r_2[1] - r_1[1]) ** 2 + (r_2[2] - r_1[2]) ** 2)
+    r_12 = torch.sqrt((w[3:6][0] - w[:3][0]) ** 2 + (w[3:6][1] - w[:3][1]) ** 2 + (w[3:6][2] - w[:3][2]) ** 2)
     r_13 = torch.sqrt((r_3[0] - r_1[0]) ** 2 + (r_3[1] - r_1[1]) ** 2 + (r_3[2] - r_1[2]) ** 2)
     r_23 = torch.sqrt((r_3[0] - r_2[0]) ** 2 + (r_3[1] - r_2[1]) ** 2 + (r_3[2] - r_2[2]) ** 2)
 
@@ -83,14 +86,47 @@ def get_full_state(w, dt, time_span):
     return results
 
 
+class ThreeBody(nn.Module):
+    def forward(self, t, y):
+        # Unpacks flattened array
+        # r_1 = y[:3]
+        # r_2 = y[3:6]
+        # r_3 = y[6:9]
+        # v_1 = y[9:12]
+        # v_2 = y[12:15]
+        # v_3 = y[15:18]
+        # m_1 = y[18]
+        # m_2 = y[19]
+        # m_3 = y[20]
+
+        # Torch calculated displacement vector magnitudes
+        r_12 = torch.sqrt((y[3:6][0] - y[:3][0]) ** 2 + (y[3:6][1] - y[:3][1]) ** 2 + (y[3:6][2] - y[:3][2]) ** 2)
+        r_13 = torch.sqrt((y[6:9][0] - y[:3][0]) ** 2 + (y[6:9][1] - y[:3][1]) ** 2 + (y[6:9][2] - y[:3][2]) ** 2)
+        r_23 = torch.sqrt((y[6:9][0] - y[3:6][0]) ** 2 + (y[6:9][1] - y[3:6][1]) ** 2 + (y[6:9][2] - y[3:6][2]) ** 2)
+
+        # The derivatives of the velocities. Returns torch tensor
+        # G is assumed to be 1
+        dv_1bydt = y[19] * (y[3:6] - y[:3]) / r_12 ** 3 + y[20] * (y[6:9] - y[:3]) / r_13 ** 3
+        dv_2bydt = y[18] * (y[:3] - y[3:6]) / r_12 ** 3 + y[20] * (y[6:9] - y[3:6]) / r_23 ** 3
+        dv_3bydt = y[18] * (y[:3] - y[6:9]) / r_13 ** 3 + y[19] * (y[3:6] - y[6:9]) / r_23 ** 3
+
+
+
+        # Vector in form [position derivatives, velocity derivatives]
+        derivatives = torch.stack([y[9:12], y[12:15], y[15:18], dv_1bydt, dv_2bydt, dv_3bydt]).flatten()
+        # Includes mass derivatives of 0
+        derivatives = torch.cat((derivatives, torch.tensor([0, 0, 0])))
+
+        # Flattens into 1d array for use
+        return derivatives
+
+
+def torchstate(y, dt, time_span, method):
+    t = torch.linspace(0., time_span, steps=int(time_span/dt))
+    return odeint(ThreeBody(), y, t, method=method)
+
+
 if __name__ == "__main__":
     w = torch.tensor(
         [-1, 0, 0, 1, 0, 0, 0, 0, 0, 0.347111, 0.532728, 0, 0.347111, 0.532728, 0, -2 * 0.347111, -2 * 0.532728, 0, 35,
          35, 35])
-
-    print(get_full_state(w, .01, 2))
-    # dt = .001
-    # k_1 = ThreeBodyDiffEq(w)
-    # k_2 = ThreeBodyDiffEq(w + dt / 2 * k_1)
-    # print(k_1)
-    # print(k_2)

@@ -5,8 +5,7 @@ import matplotlib.animation as animation
 import matplotlib as mpl
 import torch
 from datetime import datetime
-
-mpl.rcParams['animation.ffmpeg_path'] = r'D:\MAIN\Python37\Lib\site-packages\ffmpeg-5.0-essentials_build\bin\ffmpeg.exe'
+mpl.rcParams['animation.ffmpeg_path'] = r'C:\Users\Lazarus\Desktop\ThreeBodies\ffmpeg-5.0-essentials_build\bin\ffmpeg.exe'
 
 
 # Function to determine whether gpu is available or not
@@ -62,15 +61,14 @@ def nearest_position_state(particle, state, data_set, min, max, time_step):
             max_val = nearest_position(particle, state, data_set[i])
 
         i += 1
-    print(f"Time: {index*time_step}")
+    #print(f"Time: {index*time_step}")
     return index
 
 
 figure, ax = plt.subplots(2, 1)
 top, bottom = ax
-top.set_xlim(-3,3)
-top.set_ylim(-3,3)
-
+top.set_xlim(-1,1.5)
+top.set_ylim(-2,2)
 particle1, = top.plot([], [], color='r', label="Real First Star")
 particle2, = top.plot([], [], color='g', label="Real Second Star")
 particle3, = top.plot([], [], color='b', label="Real Third Star")
@@ -79,13 +77,12 @@ second_text = bottom.text(0.7, 0.78, "", fontsize = "xx-small", transform = ax[1
 third_text = bottom.text(0.7, 0.71, "", fontsize = "xx-small", transform = ax[1].transAxes)
 step_text = bottom.text(0.7, 0.64, "", fontsize = "xx-small", transform = ax[1].transAxes)
 loss_values = []
-# ax.legend(loc="upper left", fontsize=28)
+#ax.legend(loc="upper left", fontsize=28)
 top.legend(loc="upper left", fontsize=6)
 
 
 
-
-def update(i, time_step, max_period, vec, m_1, m_2, m_3, optimizer):
+def update(i, time_step, max_period, vec, m_1, m_2, m_3, optimizer, is_rand):
     input_vec = torch.cat((vec, torch.tensor([m_1,m_2,m_3])))
 
     data_set = runge_forward(input_vec, time_step, max_period)
@@ -105,17 +102,41 @@ def update(i, time_step, max_period, vec, m_1, m_2, m_3, optimizer):
     optimizer.zero_grad()
 
     #data_set = forward(input_vec)
-    first_index = nearest_position_state(1, data_set[0], data_set, 300, len(data_set), step)
-    first_particle_state = data_set[first_index]
-    second_index = nearest_position_state(2, data_set[0], data_set, 300, len(data_set), step)
-    second_particle_state = data_set[second_index]
-    third_index = nearest_position_state(3, data_set[0], data_set, 300, len(data_set), step)
-    third_particle_state = data_set[third_index]
-    loss = nearest_position(1, data_set[0], first_particle_state) + nearest_position(2, data_set[0],
-                                                                                     second_particle_state) + nearest_position(
-        3, data_set[0], third_particle_state)
+    if i < 2 or i % 2 == 1:
+               # data_set = forward(input_vec)
+        first_index = nearest_position_state(1, data_set[0], data_set, 300, len(data_set), step)
+        first_particle_state = data_set[first_index]
+        second_index = nearest_position_state(2, data_set[0], data_set, 300, len(data_set), step)
+        second_particle_state = data_set[second_index]
+        third_index = nearest_position_state(3, data_set[0], data_set, 300, len(data_set), step)
+        third_particle_state = data_set[third_index]
+        loss = nearest_position(1, data_set[0], first_particle_state) + nearest_position(2, data_set[0],
+                                                                                         second_particle_state) + nearest_position(
+            3, data_set[0], third_particle_state)
+        global period_index
+        period_index = int((first_index + second_index + third_index) / 3)
+        #global period_index
+        #period_index = int((first_index + second_index + third_index) / 3)
+
+    else:
+
+        
+        
+        print(period_index)
+        #data_set = forward(input_vec)
+        first_index = nearest_position_state(1, data_set[0], data_set, period_index + 100, len(data_set), step)
+        first_particle_state = data_set[first_index]
+        second_index = nearest_position_state(2, data_set[0], data_set, period_index + 100, len(data_set), step)
+        second_particle_state = data_set[second_index]
+        third_index = nearest_position_state(3, data_set[0], data_set, period_index+100, len(data_set), step)
+        third_particle_state = data_set[third_index]
+        loss = nearest_position(1, data_set[0], first_particle_state) + nearest_position(2, data_set[0],
+                                                                                         second_particle_state) + nearest_position(
+            3, data_set[0], third_particle_state)
+
 
     print(" ")
+
     loss_values.append(loss.item())
 
     print(loss)
@@ -141,6 +162,12 @@ def update(i, time_step, max_period, vec, m_1, m_2, m_3, optimizer):
 
     print(f"Epoch:{i}")
     print(" ")
+    if is_rand:
+        with open("randlog.txt", "a") as file:
+            file.write(f"Epoch: {i}\nMax Period: {max_period}\nInput Vec: {input_vec}\nLoss: {loss}\nGradient: {vec.grad}\n\n")
+    else:
+        with open("log.txt", "a") as file:
+            file.write(f"Epoch: {i}\nMax Period: {max_period}\nInput Vec: {input_vec}\nLoss: {loss}\nGradient: {vec.grad}\n\n")    
     return particle1, particle2, particle3, first_text, second_text, third_text
 
 
@@ -173,7 +200,10 @@ def update(i, time_step, max_period, vec, m_1, m_2, m_3, optimizer):
 
 
 
-def optimize(vec, m_1, m_2, m_3, lr=.0001, time_step = .002, num_epochs=100, max_period=10, opt_func = torch.optim.NAdam, video_folder="AfterJuly18"):
+
+def optimize(vec, m_1, m_2, m_3, lr=.0001, time_step = .002, num_epochs=20, max_period=10, opt_func = torch.optim.NAdam, video_folder="AfterJuly18"):
+    with open("log.txt", "a") as file:
+        file.write(f"\n\n\n{vec}, {m_1}, {m_2}, {m_3}, {opt_func}, {lr}, {time_step}")
     fp = int(num_epochs/10)
     if fp == 0:
         fp = 1
@@ -184,17 +214,99 @@ def optimize(vec, m_1, m_2, m_3, lr=.0001, time_step = .002, num_epochs=100, max
     video_title = video_title[:video_title.index(" ")] + "-" + video_title[video_title.index(" ") + 1:]
     video_title = video_title[:video_title.index(":")] + "-" + video_title[video_title.index(":") + 1:]
     video_title = video_title[:video_title.index(":")] + "-" + video_title[video_title.index(":") + 1:]
-
-    ani = animation.FuncAnimation(figure, update, frames=num_epochs, fargs=(time_step, max_period, vec, m_1, m_2, m_3, optimizer))
-    ani.save(f"D:\\Main\\PycharmProjects\\PeriodicThreeBodies\\Videos\\{video_folder}\\a{video_title}.mp4",
+    a = int(vec[0].item()*1000)
+    print(a)
+    ani = animation.FuncAnimation(figure, update, frames=num_epochs, fargs=(time_step, max_period, vec, m_1, m_2, m_3, optimizer, False))
+    ani.save(f"C:\\Users\\Lazarus\\Desktop\\ThreeBodies\\Videos\\{video_folder}\\{a}{video_title}.mp4",
               writer = writer)
+
+def randoptimize(vec, m_1, m_2, m_3, lr=.0001, time_step = .002, num_epochs=20, max_period=10, opt_func = torch.optim.NAdam, video_folder="rand"):
+    with open("randlog.txt", "a") as file:
+        file.write(f"\n\n\n{vec}, {m_1}, {m_2}, {m_3}, {opt_func}, {lr}, {time_step}")
+    fp = int(num_epochs/10)
+    if fp == 0:
+        fp = 1
+    writer = animation.FFMpegWriter(fps = fp)
+    optimizer = opt_func([vec], lr=lr)
+    now = str(datetime.now())
+    video_title = now[:now.index(".")]
+    video_title = video_title[:video_title.index(" ")] + "-" + video_title[video_title.index(" ") + 1:]
+    video_title = video_title[:video_title.index(":")] + "-" + video_title[video_title.index(":") + 1:]
+    video_title = video_title[:video_title.index(":")] + "-" + video_title[video_title.index(":") + 1:]
+  
+    ani = animation.FuncAnimation(figure, update, frames=num_epochs, fargs=(time_step, max_period, vec, m_1, m_2, m_3, optimizer, True))
+    ani.save(f"C:\\Users\\Lazarus\\Desktop\\ThreeBodies\\Videos\\{video_folder}\\a{video_title}.mp4",
+              writer = writer)
+
+  #  with open("mainoutput.txt", "a") as file:
+  #      file.write("\n")
+  #      file.write(f"{num_epochs}, {lr}, {opt_func}: \n")
+  #      file.write(str(vec))
+
+
+def losses(vec, m_1, m_2, m_3, lr=.0001, time_step = .002, num_epochs=100, max_period=10, opt_func = torch.optim.NAdam):
+    initial_vec = vec
+    optimizer = opt_func([vec], lr=lr)
+    result = {}
+    #loss_values = []
+    i = 0
+    while i < num_epochs:
+        input_vec = torch.cat((vec, torch.tensor([m_1,m_2,m_3])))
+
+        data_set = runge_forward(input_vec, time_step, max_period)
+        step = time_step
+        
+        #print(f"Max Period: {max_period}")
+
+        #optimizer = torch.optim.Adam([input_vec], lr = lr)
+        if len(loss_values) > 10:
+            if loss_values[-1] == loss_values[-3]:
+                #print("Repeated")
+                optimizer = torch.optim.SGD([vec], lr=.00001)
+            else:
+                optimizer = opt_func([vec], lr=lr)
+        #     else:
+        #         optimizer = opt_func([vec], lr = lr)
+        # else:
+        #     optimizer = opt_func([vec], lr = lr)
+        optimizer.zero_grad()
+
+        #data_set = forward(input_vec)
+        first_index = nearest_position_state(1, data_set[0], data_set, 300, len(data_set), step)
+        first_particle_state = data_set[first_index]
+        second_index = nearest_position_state(2, data_set[0], data_set, 300, len(data_set), step)
+        second_particle_state = data_set[second_index]
+        third_index = nearest_position_state(3, data_set[0], data_set, 300, len(data_set), step)
+        third_particle_state = data_set[third_index]
+        loss = nearest_position(1, data_set[0], first_particle_state) + nearest_position(2, data_set[0],
+                                                                                         second_particle_state) + nearest_position(
+            3, data_set[0], third_particle_state)
+
+        #print(" ")
+        print(f"{i},{initial_vec},{input_vec},{loss}\n")
+        #loss_values.append(loss.item())
+        result[vec] = loss.item()
+        with open("case1log.txt", "a") as file:
+            file.write(f"{i},{initial_vec},{input_vec},{max_period},{loss}\n")
+
+        
+        
+        #print(loss)
+
+        loss.backward()
+       
+        # Updates input vector
+        optimizer.step()
+        
+    
+        #print(f"Epoch:{i}")
+        #print(" ")
+
+        i += 1
 
     with open("mainoutput.txt", "a") as file:
         file.write("\n")
         file.write(f"{num_epochs}, {lr}, {opt_func}: \n")
         file.write(str(vec))
-
-
-
-
-
+    return result
+    
