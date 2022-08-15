@@ -39,7 +39,7 @@ def perturb(vec, std):
                          0.0,
                          torch.normal(mean=vec[15], std=torch.tensor(std)),
                          torch.normal(mean=vec[16], std=torch.tensor(std)),
-                         0.0,], requires_grad = True)
+                         0.0,], requires_grad = True).to(device)
 
 
 # Epoch ~6400 at .001 time length 15
