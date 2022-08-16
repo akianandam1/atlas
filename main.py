@@ -1,7 +1,7 @@
-from ModelVisuals import optimize
+#from ModelVisuals import optimize
 import torch
 from RevisedNumericalSolver import torchstate
-from shuffledcase1road import data
+#from shuffledcase1road import data
 import time
 import random
 import sys
@@ -39,7 +39,7 @@ def perturb(vec, std):
                          0.0,
                          torch.normal(mean=vec[15], std=torch.tensor(std)),
                          torch.normal(mean=vec[16], std=torch.tensor(std)),
-                         0.0,], requires_grad = True).to(device)
+                         0.0,], requires_grad = True)
 
 
 # Epoch ~6400 at .001 time length 15
@@ -62,7 +62,7 @@ def nearest_position(particle, state1, state2):
 # Finds the most similar state to the initial position in a data set
 def nearest_position_state(particle, state, data_set, min, max, time_step):
     i = min
-    max_val = torch.tensor([100000000]).to(device)
+    max_val = torch.tensor([100000000])
     index = -1
     while i < max:
         if nearest_position(particle, state, data_set[i]).item() < max_val.item():
@@ -107,13 +107,13 @@ def loss_values(identity, vec, m_1, m_2, m_3, lr, time_step, num_epochs, max_per
         # else:
         #     optimizer = opt_func([vec], lr = lr)
         optimizer.zero_grad()
-
+        
         #data_set = forward(input_vec)
-        first_index = nearest_position_state(1, data_set[0], data_set, 300, len(data_set), step)
+        first_index = nearest_position_state(1, data_set[0], data_set, 300, len(data_set), time_step)
         first_particle_state = data_set[first_index]
-        second_index = nearest_position_state(2, data_set[0], data_set, 300, len(data_set), step)
+        second_index = nearest_position_state(2, data_set[0], data_set, 300, len(data_set), time_step)
         second_particle_state = data_set[second_index]
-        third_index = nearest_position_state(3, data_set[0], data_set, 300, len(data_set), step)
+        third_index = nearest_position_state(3, data_set[0], data_set, 300, len(data_set), time_step)
         third_particle_state = data_set[third_index]
         loss = nearest_position(1, data_set[0], first_particle_state) + nearest_position(2, data_set[0],
                                                                                          second_particle_state) + nearest_position(
@@ -124,7 +124,7 @@ def loss_values(identity, vec, m_1, m_2, m_3, lr, time_step, num_epochs, max_per
         print(f"{identity},{i},{loss}\n")
         losses.append(loss.item())
       
-        with open("lossvalues\\case1roadloss.txt", "a") as file:
+        with open("lossvalues\\case2roadloss.txt", "a") as file:
             file.write(f"{identity},{i},{loss}\n")
 
         
@@ -173,7 +173,6 @@ def get_loss(input_set):
     v_2 = float(input_set[5])
     T = float(input_set[6])
     vec = torch.tensor([x_1,0,0,1,0,0,0,0,0, 0, v_1, 0, 0, v_2, 0, 0, -(m_1*v_1 + m_2*v_2)/m_3, 0], requires_grad = True)
-    #print(vec)
     vec = perturb(vec, .01)
     return loss_values(vec, m_1, m_2, m_3, lr = .0001, time_step = .001, num_epochs = 90, max_period=int(T+2))
 
